@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Translation Gloss</title>
+    <style>
+        .word {
+            cursor: pointer;
+            color: blue;
+        }
+        .tooltip {
+            display: none;
+            position: absolute;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 5px;
+            z-index: 10;
+            max-width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div id="text-container">
+        <p>
+            <span class="word">Bonjour</span>, <span class="word">je</span> <span class="word">m'appelle</span> <span class="word">Oliver</span>. <span class="word">Comment</span> <span class="word">allez-vous</span>?
+        </p>
+    </div>
+    <div id="tooltip" class="tooltip"></div>
+    <script>
+        const API_KEY = 'YOUR_GOOGLE_TRANSLATE_API_KEY';
+        const userLanguage = navigator.language || navigator.userLanguage;
+        const translationCache = new Map();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const words = document.querySelectorAll('.word');
+            const tooltip = document.getElementById('tooltip');
+
+            words.forEach(word => {
+                word.addEventListener('click', handleWordClick(tooltip));
+                word.addEventListener('dblclick', handleSentenceClick(tooltip));
+            });
+
+            document.addEventListener('click', handleDocumentClick(tooltip));
+        });
+
+        async function getTranslation(text, targetLanguage) {
+            const cacheKey = `${text}-${targetLanguage}`;
+            if (translationCache.has(cacheKey)) {
+                return translationCache.get(cacheKey);
+            }
+
+            const url = `https://translation.googleapis.com/language/translate/v2?key=${API_KEY}&q=${encodeURIComponent(text)}&target=${targetLanguage}`;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                const translatedText = data.data.translations[0].translatedText;
+                translationCache.set(cacheKey, translatedText);
+                return translatedText;
+            } catch (error) {
+                console.error('Error fetching translation:', error);
+                return 'Translation not available';
+            }
+        }
+
+        function getSentence(wordElement) {
+            return wordElement.closest('p').textContent;
+        }
+
+        function handleWordClick(tooltip) {
+            return async (event) => {
+                const wordText = event.target.textContent;
+                const translation = await getTranslation(wordText, userLanguage);
+                showTooltip(event, tooltip, translation);
+            };
+        }
+
+        function handleSentenceClick(tooltip) {
+            return async (event) => {
+                const sentenceText = getSentence(event.target);
+                const translation = await getTranslation(sentenceText, userLanguage);
+                showTooltip(event, tooltip, translation);
+            };
+        }
+
+        function handleDocumentClick(tooltip) {
+            return (event) => {
+                if (!event.target.classList.contains('word')) {
+                    tooltip.style.display = 'none';
+                }
+            };
+        }
+
+        function showTooltip(event, tooltip, translation) {
+            tooltip.textContent = translation;
+            tooltip.style.left = `${event.pageX + 10}px`;
+            tooltip.style.top = `${event.pageY + 10}px`;
+            tooltip.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
